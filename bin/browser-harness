@@ -25,18 +25,40 @@ if [ -z "$NODE" ] || [ ! -x "$NODE" ]; then
   exit 1
 fi
 
-# Self-bootstrap: missing playwright-core means deps not installed (or hx
-# updated us past a dep change). Auto-heal once, then continue.
-if [ ! -d "$HARNESS_ROOT/node_modules/playwright-core" ]; then
+# Self-bootstrap. Triggers in three cases:
+#   (a) node_modules missing entirely (fresh install / nuked)
+#   (b) playwright-core absent (corrupt or partial install)
+#   (c) deps stale: package.json or package-lock.json newer than the
+#       npm-maintained marker node_modules/.package-lock.json — this catches
+#       `hx update` pulls that bumped/added dependencies (hx update does NOT
+#       re-run install.sh, so freshness must be detected here).
+_needs_bootstrap=0
+if [ ! -d "$HARNESS_ROOT/node_modules" ]; then
+  _needs_bootstrap=1
+elif [ ! -d "$HARNESS_ROOT/node_modules/playwright-core" ]; then
+  _needs_bootstrap=1
+elif [ -f "$HARNESS_ROOT/package.json" ]; then
+  _marker="$HARNESS_ROOT/node_modules/.package-lock.json"
+  if [ ! -f "$_marker" ]; then
+    _needs_bootstrap=1
+  elif [ "$HARNESS_ROOT/package.json" -nt "$_marker" ]; then
+    _needs_bootstrap=1
+  elif [ -f "$HARNESS_ROOT/package-lock.json" ] && [ "$HARNESS_ROOT/package-lock.json" -nt "$_marker" ]; then
+    _needs_bootstrap=1
+  fi
+fi
+
+if [ "$_needs_bootstrap" = "1" ]; then
   if [ "${BROWSER_HARNESS_NO_BOOTSTRAP:-}" = "1" ]; then
-    echo "FATAL: node_modules missing and BROWSER_HARNESS_NO_BOOTSTRAP=1." >&2
+    echo "FATAL: deps stale or missing AND BROWSER_HARNESS_NO_BOOTSTRAP=1." >&2
+    echo "       run manually: cd $HARNESS_ROOT && npm install --omit=dev" >&2
     exit 1
   fi
   if ! command -v npm >/dev/null 2>&1; then
     echo "FATAL: npm not found; cannot bootstrap node_modules in $HARNESS_ROOT" >&2
     exit 1
   fi
-  echo "browser-harness: bootstrapping node_modules (one-time, post-install/update)..." >&2
+  echo "browser-harness: syncing node_modules (post-install or dep-change detected)..." >&2
   (cd "$HARNESS_ROOT" && npm install --omit=dev --no-audit --no-fund --silent --no-progress >/dev/null) || {
     echo "FATAL: npm install failed in $HARNESS_ROOT" >&2
     exit 1

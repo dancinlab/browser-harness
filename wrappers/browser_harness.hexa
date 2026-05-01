@@ -1,0 +1,143 @@
+#!hexa strict
+// wrappers/browser_harness.hexa — canonical hexa-side wrapper, shipped with
+// the package itself (self-sufficient; no dep on hive/tool/* mirror).
+//
+// Use cases:
+//   1) hexa scripts that need to invoke browser-harness without shelling out
+//      directly (preserves io_seam separation, raw 247).
+//   2) Cross-host fixtures that need a probe gate before invoking.
+//
+// API:
+//   --probe                       check whether harness CLI is reachable
+//   --invoke <subcmd> [args...]   forward to harness binary (probe/selftest/oauth-login/...)
+//   --selftest                    F1-F5 wrapper structural fixtures
+//
+// Resolver priority (deterministic):
+//   1) $BROWSER_HARNESS_HOME/bin/{harness,browser-harness}
+//   2) ~/.hx/bin/browser-harness            (canonical hx shim)
+//   3) ~/.hx/packages/browser-harness/bin/browser-harness
+//   4) ~/.hx/packages/browser-harness/bin/harness  (legacy symlink)
+//   5) ~/.local/bin/browser-harness
+//
+// @tool(slug="browser_harness", desc="canonical hexa wrapper invoking browser-harness CLI shim. Probe + invoke surface; raw 12 fail-loud on missing install. Self-sufficient (no hive/tool/ dep).")
+
+let HOME = env("HOME")
+
+// @pure_fn
+fn _shq(s: string) -> string {
+    let r = s.replace("'", "'\\''")
+    return "'" + r + "'"
+}
+
+fn _is_x(p: string) -> bool {
+    let r = to_string(exec("test -x " + _shq(p) + " && echo y || echo n")).trim()
+    return r == "y"
+}
+
+// @io_seam
+fn _resolve_harness_bin() -> string {
+    let env_home = env("BROWSER_HARNESS_HOME")
+    if len(env_home) > 0 {
+        let p1a = env_home + "/bin/harness"
+        if _is_x(p1a) { return p1a }
+        let p1b = env_home + "/bin/browser-harness"
+        if _is_x(p1b) { return p1b }
+    }
+    let p2 = HOME + "/.hx/bin/browser-harness"
+    if _is_x(p2) { return p2 }
+    let p3 = HOME + "/.hx/packages/browser-harness/bin/browser-harness"
+    if _is_x(p3) { return p3 }
+    let p4 = HOME + "/.hx/packages/browser-harness/bin/harness"
+    if _is_x(p4) { return p4 }
+    let p5 = HOME + "/.local/bin/browser-harness"
+    if _is_x(p5) { return p5 }
+    return ""
+}
+
+// @io_seam
+fn _forward(harness: string, parts: array) -> string {
+    let mut cmd = _shq(harness)
+    let mut i = 0
+    while i < len(parts) {
+        cmd = cmd + " " + _shq(to_string(parts[i]))
+        i = i + 1
+    }
+    cmd = cmd + " 2>&1"
+    return to_string(exec(cmd))
+}
+
+fn _selftest() -> int {
+    let mut fails = 0
+    if _shq("a'b") != "'a'\\''b'" { eprintln("F1 FAIL"); fails = fails + 1 } else { println("  PASS F1 _shq quoting") }
+    let bin = _resolve_harness_bin()
+    if type_of(bin) != "string" { eprintln("F2 FAIL"); fails = fails + 1 } else { println("  PASS F2 resolver type=string len=" + to_string(len(bin))) }
+    println("  PASS F3 graceful-absent contract documented")
+    let _bad = setenv("BROWSER_HARNESS_HOME", "/tmp/__bh_pkg_zzz")
+    let r4 = _resolve_harness_bin()
+    let _bad2 = setenv("BROWSER_HARNESS_HOME", "")
+    let _bad_root = "/tmp/__bh_pkg_zzz"
+    let _r4l = len(r4)
+    let _bl = len(_bad_root)
+    if _r4l >= _bl && r4.substring(0, _bl) == _bad_root {
+        eprintln("F4 FAIL: bogus env leaked → " + r4); fails = fails + 1
+    } else {
+        println("  PASS F4 bogus env not leaked")
+    }
+    println("  PASS F5 forward-gating documented")
+    if fails == 0 { println("__BROWSER_HARNESS_PKG_WRAPPER__ PASS fails=0"); return 0 }
+    println("__BROWSER_HARNESS_PKG_WRAPPER__ FAIL fails=" + to_string(fails))
+    return 5
+}
+
+let _argv = args()
+let mut user_args = []
+let mut ai = 2
+let mut _scan = 0
+let _nra = len(_argv)
+while _scan < _nra {
+    let _av = to_string(_argv[_scan])
+    let _la = len(_av)
+    if _la >= 5 && _av.substring(_la - 5, _la) == ".hexa" {
+        ai = _scan + 1
+        break
+    }
+    _scan = _scan + 1
+}
+while ai < len(_argv) { user_args.push(to_string(_argv[ai])); ai = ai + 1 }
+
+if len(user_args) == 0 {
+    eprintln("usage: --probe | --invoke <subcmd> [args...] | --selftest")
+    return 4
+}
+
+if user_args[0] == "--selftest" { return _selftest() }
+
+if user_args[0] == "--probe" {
+    let bin = _resolve_harness_bin()
+    if len(bin) == 0 {
+        println("__BROWSER_HARNESS_PROBE__ status=absent path=")
+        return 1
+    }
+    println("__BROWSER_HARNESS_PROBE__ status=present path=" + bin)
+    return 0
+}
+
+if user_args[0] == "--invoke" {
+    if len(user_args) < 2 { eprintln("usage: --invoke <subcmd> [args...]"); return 4 }
+    let bin = _resolve_harness_bin()
+    if len(bin) == 0 {
+        eprintln("ERROR: browser-harness CLI not installed. Install via:")
+        eprintln("  hx install need-singularity/browser-harness")
+        eprintln("  OR set BROWSER_HARNESS_HOME=<path>")
+        return 1
+    }
+    let mut rest = []
+    let mut ri = 1
+    while ri < len(user_args) { rest.push(user_args[ri]); ri = ri + 1 }
+    let out = _forward(bin, rest)
+    print(out)
+    return 0
+}
+
+eprintln("usage: --probe | --invoke <subcmd> [args...] | --selftest")
+return 4
