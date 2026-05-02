@@ -1,6 +1,6 @@
 [package]
 name = "browser-harness"
-version = "0.2.0"
+version = "0.2.1"
 description = "Playwright-based browser automation harness for need-singularity fleet. Fresh-context factory (mandate 1-6) + probe + selftest + real oauth-login (slot-isolated storageState persistence). See docs/oauth-login.md."
 entry = "bin/browser-harness"
 license = "MIT"

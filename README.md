@@ -151,6 +151,7 @@ echo "$out" | grep -q "__BROWSER_HARNESS_SELFTEST__ PASS fails=0" || { echo "$ou
 - `v0.1.1` — entry rename `bin/browser-harness` (matches hx auto-detect convention `bin/<pkg-name>`); `bin/harness` kept as symlink for back-compat; self-bootstrap on existence check
 - `v0.1.2` — dep-drift detection (lockfile mtime); shipped `wrappers/browser_harness.hexa`
 - `v0.2.0` — real `oauth-login` (`lib/oauth.cjs`); slot-isolated storageState persistence (mode 0600); exit codes 0/1/4/51/52 (50 removed); `BROWSER_HARNESS_OAUTH_*` env surface; F6 added to selftest. See `docs/oauth-login.md`.
+- `v0.2.1` — bootstrap switched from `npm install` to `npm ci` (with fallback to `npm install` only when `package-lock.json` absent). Eliminates the `hx update browser-harness` friction where the post-install lockfile regeneration left `package-lock.json` locally-modified, which then made `git pull --ff-only` refuse to apply the update. `npm ci` reads but never writes the lockfile, so the working tree stays clean across invocations.
 
 ## Layout
 

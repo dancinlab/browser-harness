@@ -51,18 +51,32 @@ fi
 if [ "$_needs_bootstrap" = "1" ]; then
   if [ "${BROWSER_HARNESS_NO_BOOTSTRAP:-}" = "1" ]; then
     echo "FATAL: deps stale or missing AND BROWSER_HARNESS_NO_BOOTSTRAP=1." >&2
-    echo "       run manually: cd $HARNESS_ROOT && npm install --omit=dev" >&2
+    echo "       run manually: cd $HARNESS_ROOT && npm ci --omit=dev" >&2
     exit 1
   fi
   if ! command -v npm >/dev/null 2>&1; then
     echo "FATAL: npm not found; cannot bootstrap node_modules in $HARNESS_ROOT" >&2
     exit 1
   fi
+  # Prefer `npm ci` — reproducible, lockfile-pinned, and (critically) NEVER
+  # writes to package-lock.json. This eliminates the v0.2.0 friction where
+  # the bootstrap-time `npm install` regenerated package-lock.json into a
+  # locally-modified state that subsequently broke `git pull --ff-only`
+  # in `hx update browser-harness`. Falls back to `npm install` only when
+  # the lockfile is absent (npm ci hard-requires it).
   echo "browser-harness: syncing node_modules (post-install or dep-change detected)..." >&2
-  (cd "$HARNESS_ROOT" && npm install --omit=dev --no-audit --no-fund --silent --no-progress >/dev/null) || {
-    echo "FATAL: npm install failed in $HARNESS_ROOT" >&2
-    exit 1
-  }
+  if [ -f "$HARNESS_ROOT/package-lock.json" ]; then
+    (cd "$HARNESS_ROOT" && npm ci --omit=dev --no-audit --no-fund --silent --no-progress >/dev/null) || {
+      echo "FATAL: npm ci failed in $HARNESS_ROOT" >&2
+      exit 1
+    }
+  else
+    echo "browser-harness: package-lock.json absent — using npm install (will create lockfile)" >&2
+    (cd "$HARNESS_ROOT" && npm install --omit=dev --no-audit --no-fund --silent --no-progress >/dev/null) || {
+      echo "FATAL: npm install failed in $HARNESS_ROOT" >&2
+      exit 1
+    }
+  fi
 fi
 
 exec "$NODE" "$HARNESS_ROOT/lib/harness.cjs" "$@"

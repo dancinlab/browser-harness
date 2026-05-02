@@ -11,11 +11,21 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "install.sh: npm install (playwright-core, no browser binaries)..."
-npm install --omit=dev --no-audit --no-fund --silent --no-progress 2>&1 | tail -5 || {
-  echo "install.sh: npm install failed" >&2
-  exit 1
-}
+echo "install.sh: installing deps (playwright-core, no browser binaries)..."
+# Prefer `npm ci` (lockfile-pinned, never writes lockfile). Fall back to
+# `npm install` if the lockfile is missing (rare — fresh checkout always
+# carries one). v0.2.1: see bin/browser-harness for the same pattern.
+if [ -f package-lock.json ]; then
+  npm ci --omit=dev --no-audit --no-fund --silent --no-progress 2>&1 | tail -5 || {
+    echo "install.sh: npm ci failed" >&2
+    exit 1
+  }
+else
+  npm install --omit=dev --no-audit --no-fund --silent --no-progress 2>&1 | tail -5 || {
+    echo "install.sh: npm install failed" >&2
+    exit 1
+  }
+fi
 
 echo "install.sh: OK. Run 'browser-harness probe' to verify."
 echo "install.sh: For browser binaries: cd $(pwd) && npx playwright install firefox"
