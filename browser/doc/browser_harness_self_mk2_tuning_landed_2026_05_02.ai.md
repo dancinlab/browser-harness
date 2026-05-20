@@ -100,7 +100,6 @@ cf. anima 26 / nexus 6+4 land / hive .raw.mk2 3 foundational rules
   명세 그 자체이고 oauth 는 v0.2.0 부터 active credential path. 두 도메인이 90%의 prod 호출을 차지.
 - **rank B** (`remote_transport`) = ubu1/ubu2/fleet SSH-pipe 확장 surface (v0.3.0+). live SSH 가 없는
   audit-time 환경에서는 F7-F8 structural fixture 만 run; cond.3 byte-identical 은 v0.3.1 lazy
-  optimization (raw#10 honest — 100% 보장 X, content hash skip 만).
 
 ### §2.3 후보 비등록 (deferred / out-of-scope)
 
@@ -237,7 +236,6 @@ hexa.toml `version = "0.3.1"` + README.md §Versioning 가 SSOT.
 verifier=`""` (공란) 도 mk2 schema 상 valid — script 없을 때 manual override 경로
 (state/<domain>_verify_manual_review.jsonl) 만 land 도 ok.
 
-## §6 raw#10 honest C3 (10 caveat)
 
 C1 — 본 audit 는 **spec emit only**. .roadmap.<domain> 신규 파일 0건 생성, README.ai.md 0건 추가,
 `.ai-native-readme-baseline` 0건 추가. 사용자 lock-in 후 별도 cycle 필요.
@@ -288,7 +286,6 @@ prompt 요약/재구성으로만 land. handoff doc only 정책에 따라 사용�
 - TL;DR 최상단 5 줄
 - 모든 §-section 표 (table) 우선
 - 3 후보 priority rank A/A/B 으로 actionable
-- raw#10 caveats (C1-C10) inline
 - 마지막 next step 명시 (사용자 lock-in 대기)
 
 ## §9 Marker 1개 emit
